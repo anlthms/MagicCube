@@ -5,6 +5,8 @@
 #   https://github.com/davidwhogg/MagicCube
 
 import numpy as np
+import matplotlib
+matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 from matplotlib import widgets
 from projection import Quaternion, project_points
@@ -213,6 +215,7 @@ class InteractiveCube(plt.Axes):
         else:
             self.cube = Cube(cube)
 
+        self._moves = []
         self._view = view
         self._start_rot = Quaternion.from_v_theta((1, -1, 0),
                                                   -np.pi / 6)
@@ -284,13 +287,21 @@ class InteractiveCube(plt.Axes):
                          size=10)
 
     def _initialize_widgets(self):
-        self._ax_reset = self.figure.add_axes([0.75, 0.05, 0.2, 0.075])
+        self._ax_reset = self.figure.add_axes([0.75, 0.05, 0.2, 0.050])
         self._btn_reset = widgets.Button(self._ax_reset, 'Reset View')
         self._btn_reset.on_clicked(self._reset_view)
 
-        self._ax_solve = self.figure.add_axes([0.55, 0.05, 0.2, 0.075])
+        self._ax_solve = self.figure.add_axes([0.55, 0.05, 0.2, 0.050])
         self._btn_solve = widgets.Button(self._ax_solve, 'Solve Cube')
         self._btn_solve.on_clicked(self._solve_cube)
+
+        self._ax_save = self.figure.add_axes([0.55, 0.00, 0.2, 0.050])
+        self._btn_save = widgets.Button(self._ax_save, 'Save Moves')
+        self._btn_save.on_clicked(self._save_cube)
+
+        self._ax_ai = self.figure.add_axes([0.75, 0.00, 0.2, 0.050])
+        self._btn_ai = widgets.Button(self._ax_ai, 'AI Solve')
+        self._btn_ai.on_clicked(self._ai_solve)
 
     def _project(self, pts):
         return project_points(pts, self._current_rot, self._view, [0, 1, 0])
@@ -355,6 +366,22 @@ class InteractiveCube(plt.Axes):
         for (face, n, layer) in move_list[::-1]:
             self.rotate_face(face, -n, layer, steps=3)
         self.cube._move_list = []
+        self._moves = []
+
+    def _save_cube(self, *args):
+        moves = ' '.join(self._moves)
+        print(moves)
+        with open('moves.txt', 'w') as fd:
+            fd.write(moves)
+
+    def _ai_solve(self, *args):
+        moves = raw_input('Enter AI moves: ')
+        moves = moves.split(' ')
+        for move in moves:
+            direction = 1 if len(move) == 1 else -1
+            self.rotate_face(move[0], direction)
+        self._draw_cube()
+        self._moves = []
 
     def _key_press(self, event):
         """Handler for key press events"""
@@ -383,8 +410,10 @@ class InteractiveCube(plt.Axes):
             self.rotate(Quaternion.from_v_theta(self._ax_UD,
                                                 -5 * self._step_UD))
         elif event.key.upper() in 'LRUDBF':
+            self._moves.append(event.key.upper())
             if self._shift:
                 direction = -1
+                self._moves[-1] += "'"
             else:
                 direction = 1
 
